@@ -1,0 +1,38 @@
+name: Build StackVerify WordPress Plugin
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Clean build folder
+        run: |
+          rm -rf build
+          mkdir build
+
+      - name: Prepare plugin
+        run: |
+          mkdir build/stackverify
+          cp admin.php build/stackverify/
+          cp client.php build/stackverify/
+          cp stackverify.php build/stackverify/
+          cp uninstall.php build/stackverify/
+          cp readme.txt build/stackverify/
+
+      - name: Create ZIP
+        run: |
+          cd build
+          zip -r stackverify.zip stackverify
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stackverify-plugin
+          path: build/stackverify.zip
