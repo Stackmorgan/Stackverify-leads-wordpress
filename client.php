@@ -1,17 +1,21 @@
-class StackVerifyClient {
+<?php
 
-    public static function send($formId, $data) {
+class StackVerifyClient
+{
+    public static function send($formId, $data)
+    {
+        if (empty($formId)) {
+            return;
+        }
 
-        if (!$formId) return;
-
-        wp_remote_post(
-            "https://stackverify.site/api/f/" . $formId,
+        return wp_remote_post(
+            "https://stackverify.site/api/f/" . urlencode($formId),
             [
                 'method'  => 'POST',
                 'headers' => [
-                    'Content-Type' => 'application/json'
+                    'Content-Type' => 'application/json',
                 ],
-                'body' => json_encode($data)
+                'body'    => json_encode($data),
             ]
         );
     }
