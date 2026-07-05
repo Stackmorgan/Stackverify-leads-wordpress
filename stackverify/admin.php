@@ -1,237 +1,281 @@
 <?php
-
 if (!defined('ABSPATH')) exit;
 
-/* =========================
-   ADMIN MENU
-========================= */
-add_action('admin_menu', function () {
-    add_menu_page(
-        'StackVerify',
-        'StackVerify',
-        'manage_options',
-        'stackverify',
-        'stackverify_settings_page',
-        'dashicons-filter',
-        80
-    );
-});
+class StackVerify_Admin {
 
-/* =========================
-   SETTINGS
-========================= */
-add_action('admin_init', function () {
-    register_setting('stackverify_settings', 'stackverify_api_key');
-    register_setting('stackverify_settings', 'stackverify_mappings');
-});
+    private $option_name = 'stackverify_event_logs';
+    private $settings_name = 'stackverify_settings';
 
-/* =========================
-   DETECT PLUGINS
-========================= */
-function stackverify_detect_plugins() {
-    return [
-        'woocommerce' => class_exists('WooCommerce'),
-        'cf7'         => class_exists('WPCF7'),
-    ];
-}
+    public function __construct() {
+        add_action('admin_menu', [$this, 'menu']);
+        add_action('admin_post_stackverify_save_settings', [$this, 'save_settings']);
+    }
 
-/* =========================
-   DEFAULT FORM IDS (ZERO CONFIG)
-========================= */
-function stackverify_default_form_id($type) {
+    public function menu() {
+        add_menu_page(
+            'StackVerify',
+            'StackVerify',
+            'manage_options',
+            'stackverify',
+            [$this, 'render'],
+            'dashicons-shield',
+            56
+        );
+    }
 
-    $defaults = [
-        'woocommerce' => 'frm_orders',
-        'contact'     => 'frm_contact',
-        'user'        => 'frm_users'
-    ];
+    /* =========================
+     * SETTINGS
+     * ========================= */
 
-    return $defaults[$type] ?? null;
-}
-
-/* =========================
-   RESOLVE FORM ID
-========================= */
-function stackverify_get_form_id($type) {
-
-    $m = get_option('stackverify_mappings', []);
-
-    return $m[$type] ?? stackverify_default_form_id($type);
-}
-
-/* =========================
-   LOGS
-========================= */
-function stackverify_log_event($type, $data) {
-
-    $logs = get_option('stackverify_logs', []);
-
-    array_unshift($logs, [
-        'type' => $type,
-        'data' => $data,
-        'time' => current_time('mysql')
-    ]);
-
-    $logs = array_slice($logs, 0, 20);
-
-    update_option('stackverify_logs', $logs);
-}
-
-/* =========================
-   TEST EVENT
-========================= */
-if (isset($_POST['sv_test'])) {
-
-    $formId = stackverify_get_form_id('contact');
-
-    if ($formId) {
-        StackVerifyClient::send($formId, [
-            'name' => 'Test User',
-            'email' => 'test@stackverify.local',
-            'message' => 'Test event from WordPress plugin'
+    private function get_settings() {
+        return get_option($this->settings_name, [
+            'webhook_url' => 'https://stackverify.site/api/f/default',
+            'api_key'     => ''
         ]);
+    }
 
-        stackverify_log_event('test', ['formId' => $formId]);
+    public function save_settings() {
+        if (!current_user_can('manage_options')) return;
+
+        $data = [
+            'webhook_url' => esc_url_raw($_POST['webhook_url']),
+            'api_key'     => sanitize_text_field($_POST['api_key']),
+        ];
+
+        update_option($this->settings_name, $data);
+
+        wp_redirect(admin_url('admin.php?page=stackverify&saved=1'));
+        exit;
+    }
+
+    /* =========================
+     * EVENT LOGS (TEMP STORAGE)
+     * ========================= */
+
+    private function get_logs() {
+        return get_option($this->option_name, []);
+    }
+
+    public static function add_log($log) {
+        $logs = get_option('stackverify_event_logs', []);
+
+        $logs[] = [
+            'event'    => $log['event'] ?? 'unknown',
+            'source'   => $log['source'] ?? 'system',
+            'status'   => $log['status'] ?? 'sent',
+            'time'     => current_time('mysql')
+        ];
+
+        // keep only last 50
+        $logs = array_slice($logs, -50);
+
+        update_option('stackverify_event_logs', $logs);
+    }
+
+    /* =========================
+     * RENDER UI
+     * ========================= */
+
+    public function render() {
+
+        $s = $this->get_settings();
+        $logs = $this->get_logs();
+
+        ?>
+
+<style>
+:root {
+  --bg:#FAFAFA;
+  --card:#fff;
+  --text:#111827;
+  --muted:#6B7280;
+  --accent:#2563EB;
+  --border:#E5E7EB;
+  --good:#059669;
+  --bad:#DC2626;
+}
+
+.wrap {
+  background: var(--bg);
+  padding: 20px;
+  min-height: 100vh;
+  color: var(--text);
+}
+
+.card, .panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(260px,1fr));
+  gap: 15px;
+}
+
+.stat {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+label {
+  display:block;
+  margin-top:10px;
+  font-weight:500;
+}
+
+input {
+  width:100%;
+  padding:10px;
+  border:1px solid var(--border);
+  border-radius:8px;
+}
+
+button {
+  background: var(--accent);
+  color:#fff;
+  border:none;
+  padding:10px 14px;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+.badge {
+  padding:4px 10px;
+  border-radius:20px;
+  font-size:12px;
+}
+
+.sent { background:#DCFCE7; color:var(--good); }
+.failed { background:#FEE2E2; color:var(--bad); }
+
+table {
+  width:100%;
+  border-collapse: collapse;
+}
+
+td,th {
+  padding:12px;
+  border-bottom:1px solid var(--border);
+  text-align:left;
+}
+
+th {
+  font-size:12px;
+  color:var(--muted);
+  text-transform:uppercase;
+}
+</style>
+
+<div class="wrap">
+
+  <!-- HEADER -->
+  <div class="card">
+    <h2>StackVerify Engine</h2>
+    <p style="color:var(--muted)">
+      Universal event capture system → WordPress → StackVerify server
+    </p>
+  </div>
+
+  <!-- STATS (REAL PLACEHOLDER) -->
+  <div class="grid">
+
+    <div class="card">
+      <h3>Total Events</h3>
+      <div class="stat"><?php echo count($logs); ?></div>
+    </div>
+
+    <div class="card">
+      <h3>Sent</h3>
+      <div class="stat">
+        <?php echo count(array_filter($logs, fn($l) => $l['status'] === 'sent')); ?>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Failed</h3>
+      <div class="stat">
+        <?php echo count(array_filter($logs, fn($l) => $l['status'] === 'failed')); ?>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="panel">
+
+    <h3>Global Settings</h3>
+
+    <form method="POST" action="<?php echo admin_url('admin-post.php'); ?>">
+      <input type="hidden" name="action" value="stackverify_save_settings">
+
+      <label>StackVerify Endpoint</label>
+      <input name="webhook_url" value="<?php echo esc_attr($s['webhook_url']); ?>">
+
+      <label>API Key (optional)</label>
+      <input name="api_key" value="<?php echo esc_attr($s['api_key']); ?>">
+
+      <button type="submit">Save</button>
+    </form>
+
+  </div>
+
+  <!-- TEST -->
+  <div class="panel">
+
+    <h3>Test Event</h3>
+
+    <button onclick="fetch(window.location.href + '&test=1')">
+      Send Test Event
+    </button>
+
+  </div>
+
+  <!-- LOGS -->
+  <div class="panel">
+
+    <h3>Event Stream</h3>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Event</th>
+          <th>Source</th>
+          <th>Status</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <?php if (empty($logs)): ?>
+          <tr><td colspan="4">No events yet</td></tr>
+        <?php else: ?>
+          <?php foreach (array_reverse($logs) as $log): ?>
+            <tr>
+              <td><?php echo esc_html($log['event']); ?></td>
+              <td><code><?php echo esc_html($log['source']); ?></code></td>
+              <td>
+                <span class="badge <?php echo esc_attr($log['status']); ?>">
+                  <?php echo esc_html($log['status']); ?>
+                </span>
+              </td>
+              <td><?php echo esc_html($log['time']); ?></td>
+            </tr>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </tbody>
+
+    </table>
+
+  </div>
+
+</div>
+
+<?php
     }
 }
 
-/* =========================
-   UI PAGE
-========================= */
-function stackverify_settings_page() {
-
-    $m = get_option('stackverify_mappings', []);
-    $logs = get_option('stackverify_logs', []);
-    $detected = stackverify_detect_plugins();
-
-    ?>
-
-    <div style="max-width:800px; margin:40px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-
-        <!-- HEADER -->
-        <h1 style="font-weight:500; margin-bottom:25px;">
-            StackVerify
-        </h1>
-
-        <!-- DETECTION -->
-        <div style="padding:12px; border:1px solid #eee; border-radius:6px; margin-bottom:25px;">
-
-            <div style="font-size:13px; margin-bottom:8px; color:#666;">
-                System Status
-            </div>
-
-            <div style="font-size:13px;">
-                WooCommerce:
-                <strong style="color:<?php echo $detected['woocommerce'] ? 'green' : '#999'; ?>">
-                    <?php echo $detected['woocommerce'] ? 'Detected ✓' : 'Not Found'; ?>
-                </strong>
-            </div>
-
-            <div style="font-size:13px;">
-                Contact Form 7:
-                <strong style="color:<?php echo $detected['cf7'] ? 'green' : '#999'; ?>">
-                    <?php echo $detected['cf7'] ? 'Detected ✓' : 'Not Found'; ?>
-                </strong>
-            </div>
-
-        </div>
-
-        <!-- FORM -->
-        <form method="post" action="options.php">
-
-            <?php settings_fields('stackverify_settings'); ?>
-
-            <!-- API KEY -->
-            <div style="margin-bottom:20px;">
-                <label style="font-size:12px; color:#666;">API Key (optional)</label>
-                <input type="text"
-                       name="stackverify_api_key"
-                       value="<?php echo esc_attr(get_option('stackverify_api_key')); ?>"
-                       style="width:100%; padding:10px; border:1px solid #eee; border-radius:6px;">
-            </div>
-
-            <hr style="border:none; border-top:1px solid #eee; margin:25px 0;">
-
-            <h2 style="font-size:13px; font-weight:500; margin-bottom:15px;">
-                Event Mapping
-            </h2>
-
-            <!-- Woo -->
-            <div style="margin-bottom:15px;">
-                <label style="font-size:12px; color:#666;">WooCommerce Orders → Form ID</label>
-                <input type="text"
-                       name="stackverify_mappings[woocommerce]"
-                       value="<?php echo esc_attr($m['woocommerce'] ?? ''); ?>"
-                       placeholder="frm_orders"
-                       style="width:100%; padding:10px; border:1px solid #eee; border-radius:6px;">
-            </div>
-
-            <!-- Contact -->
-            <div style="margin-bottom:15px;">
-                <label style="font-size:12px; color:#666;">Contact Forms → Form ID</label>
-                <input type="text"
-                       name="stackverify_mappings[contact]"
-                       value="<?php echo esc_attr($m['contact'] ?? ''); ?>"
-                       placeholder="frm_contact"
-                       style="width:100%; padding:10px; border:1px solid #eee; border-radius:6px;">
-            </div>
-
-            <!-- Users -->
-            <div style="margin-bottom:25px;">
-                <label style="font-size:12px; color:#666;">User Registrations → Form ID</label>
-                <input type="text"
-                       name="stackverify_mappings[user]"
-                       value="<?php echo esc_attr($m['user'] ?? ''); ?>"
-                       placeholder="frm_users"
-                       style="width:100%; padding:10px; border:1px solid #eee; border-radius:6px;">
-            </div>
-
-            <?php submit_button('Save Settings'); ?>
-
-        </form>
-
-        <!-- TEST BUTTON -->
-        <form method="post" style="margin-top:15px;">
-            <input type="hidden" name="sv_test" value="1">
-            <?php submit_button('Send Test Event → StackVerify'); ?>
-        </form>
-
-        <!-- LOGS -->
-        <div style="margin-top:30px;">
-
-            <h3 style="font-size:13px; font-weight:500; margin-bottom:10px;">
-                Recent Events
-            </h3>
-
-            <div style="border:1px solid #eee; border-radius:6px; padding:10px;">
-
-                <?php if (empty($logs)): ?>
-
-                    <div style="font-size:12px; color:#999;">
-                        No events yet
-                    </div>
-
-                <?php else: ?>
-
-                    <?php foreach ($logs as $log): ?>
-
-                        <div style="font-size:12px; padding:6px 0; border-bottom:1px solid #f5f5f5;">
-                            <strong><?php echo esc_html($log['type']); ?></strong>
-                            <span style="color:#999;">— <?php echo esc_html($log['time']); ?></span>
-                        </div>
-
-                    <?php endforeach; ?>
-
-                <?php endif; ?>
-
-            </div>
-        </div>
-
-        <p style="margin-top:25px; font-size:11px; color:#aaa;">
-            StackVerify syncs WordPress events using Form IDs from your dashboard.
-        </p>
-
-    </div>
-
-    <?php
-}
+new StackVerify_Admin();

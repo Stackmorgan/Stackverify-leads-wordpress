@@ -4,16 +4,9 @@ class StackVerifyClient
 {
     public static function send($formId, $data)
     {
-        // formId is REQUIRED routing key
         if (empty($formId)) {
-            return false;
+            return;
         }
-
-        $payload = [
-            'data'      => $data,
-            'site_url'  => get_site_url(),
-            'timestamp' => current_time('mysql'),
-        ];
 
         return wp_remote_post(
             "https://stackverify.site/api/f/" . urlencode($formId),
@@ -22,8 +15,7 @@ class StackVerifyClient
                 'headers' => [
                     'Content-Type' => 'application/json',
                 ],
-                'body'    => json_encode($payload),
-                'timeout' => 10,
+                'body'    => json_encode($data),
             ]
         );
     }
