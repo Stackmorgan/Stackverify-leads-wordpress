@@ -1,3 +1,5 @@
+<img src="https://i.ibb.co/Fqgxjt1N/Gemini-Generated-Image-m7irhdm7irhdm7ir.png" alt="StackVerify Logo" width="100%" style="max-width: 900px;">
+
 # StackVerify WordPress Plugin
 
 A lightweight WordPress plugin that fixes one of WordPress’ biggest hidden problems:
