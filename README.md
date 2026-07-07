@@ -57,35 +57,76 @@ Instead of manually checking WordPress:
 ✔ No missed communication  
 
 ---
-
 ## 📦 Installation
 
-### 1. Download plugin
-
-From GitHub Releases:
-
-https://github.com/stackmorgan/stackverify-wordpress/releases/latest
+StackVerify WordPress Connector requires **WP Webhooks** to detect WordPress events and send data to StackVerify.
 
 ---
 
-### 2. Install in WordPress
+### 1. Install WP Webhooks
 
-- Go to: Plugins → Add New → Upload Plugin
-- Upload ZIP
-- Activate
+First install and activate the WP Webhooks plugin:
+
+WordPress Dashboard → Plugins → Add New → Search "WP Webhooks"
+
+Activate the plugin after installation.
+
+---
+
+### 2. Download StackVerify Connector
+
+Download the latest StackVerify Connector ZIP:
+
+https://github.com/Stackmorgan/Stackverify-leads-wordpress/blob/main/stackverify-wordpress.zip
+
+Click **View Raw** to download the ZIP file.
+
+---
+
+### 3. Install StackVerify Connector in WordPress
+
+Go to:
+
+WordPress Dashboard → Plugins → Add New → Upload Plugin
+
+Then:
+
+- Upload `stackverify-wordpress.zip`
+- Click **Install Now**
+- Activate the plugin
 
 ---
 
 ## ⚙️ Setup (1–2 minutes)
 
-1. Create a form in StackVerify dashboard
-2. Copy Form ID (example: `frm_orders`)
-3. Open WordPress → StackVerify settings
-4. Map events:
-   - WooCommerce Orders
-   - Contact Forms
-   - User Registrations
-5. Save
+After activation, StackVerify will appear under:
+
+WordPress Dashboard → Settings → StackVerify
+
+![StackVerify WordPress Settings](https://i.ibb.co/bjvrSrNZ/image.png)
+
+Setup steps:
+
+1. Create a form in the StackVerify dashboard
+2. Copy your Form ID
+
+Example:
+
+frm_orders
+
+3. Open:
+
+WordPress → Settings → StackVerify
+
+4. Add your Form ID
+
+5. Select the events you want to send:
+
+- WooCommerce Orders
+- Contact Form Submissions
+- User Registrations
+
+6. Save settings
 
 Done.
 
@@ -96,23 +137,29 @@ Done.
 ```text
 WordPress Event Happens
         ↓
-StackVerify Plugin captures event
+WP Webhooks detects the event
         ↓
-Event is sent via Form ID
+StackVerify Connector captures the event
         ↓
-StackVerify processes it
+Event is sent using your Form ID
         ↓
-Triggers communication (email, WhatsApp, webhook, automation)
+StackVerify processes the data
+        ↓
+Triggers communication (Email, WhatsApp, Webhooks, Automation)
 ```
-## 📡 Supported WordPress Events
+## Supported WordPress Events
 
-The plugin currently supports:
+The connector currently supports:
 
-- WooCommerce Orders
-- Contact Form Submissions
-- User Registrations
+WooCommerce Orders
 
-More integrations can be added via WordPress hooks and lightweight extensions.
+Contact Form Submissions
+
+User Registrations
+
+
+More integrations can be added through WordPress hooks and lightweight extensions.
+
 
 ---
 
